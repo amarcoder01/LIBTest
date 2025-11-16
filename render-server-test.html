@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Render Server Test - Simple</title>
+    <script src="speedtest.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 600px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button { 
+            padding: 12px 24px; 
+            margin: 10px 5px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        h1 { color: #333; text-align: center; }
+        .status { text-align: center; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Render Server Connection Test</h1>
+        <p>This test uses ONLY the Render server configuration to verify connectivity.</p>
+        
+        <div style="text-align: center;">
+            <button onclick="loadRenderServer()">1. Load Render Server</button>
+            <button onclick="testConnection()" id="testBtn" disabled>2. Test Connection</button>
+            <button onclick="runSpeedtest()" id="speedtestBtn" disabled>3. Run Speedtest</button>
+            <button onclick="clearOutput()">Clear Output</button>
+        </div>
+        
+        <div class="status" id="status">Ready to test Render server connection</div>
+        
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        const testBtn = document.getElementById('testBtn');
+        const speedtestBtn = document.getElementById('speedtestBtn');
+        
+        let speedtest = null;
+        let renderServer = null;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${timestamp}] ${message}`;
+            output.appendChild(entry);
+            output.scrollTop = output.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+        
+        function clearOutput() {
+            output.innerHTML = '';
+            updateStatus('Output cleared', 'info');
+        }
+        
+        // Define the Render server configuration
+        function loadRenderServer() {
+            clearOutput();
+            log('Loading Render server configuration...');
+            
+            renderServer = {
+                name: "Render Deployment",
+                server: "https://libtest.onrender.com/",
+                dlURL: "backend/garbage.php",
+                ulURL: "backend/empty.php",
+                pingURL: "backend/empty.php",
+                getIpURL: "backend/getIP.php"
+            };
+            
+            log('Render server configuration loaded:', 'success');
+            log(`Name: ${renderServer.name}`, 'info');
+            log(`Server URL: ${renderServer.server}`, 'info');
+            log(`Download URL: ${renderServer.dlURL}`, 'info');
+            log(`Upload URL: ${renderServer.ulURL}`, 'info');
+            log(`Ping URL: ${renderServer.pingURL}`, 'info');
+            log(`Get IP URL: ${renderServer.getIpURL}`, 'info');
+            
+            // Initialize speedtest
+            try {
+                speedtest = new Speedtest();
+                speedtest.setSelectedServer(renderServer);
+                log('Speedtest initialized with Render server', 'success');
+                
+                // Set up callbacks
+                speedtest.onupdate = function(data) {
+                    log(`Update - DL: ${data.dlStatus} Mbps, UL: ${data.ulStatus} Mbps, Ping: ${data.pingStatus} ms`, 'success');
+                    updateStatus(`Testing... DL: ${data.dlStatus} Mbps`, 'info');
+                };
+                
+                speedtest.onend = function(aborted) {
+                    log(`Test completed. Aborted: ${aborted}`, aborted ? 'error' : 'success');
+                    updateStatus(aborted ? 'Test aborted' : 'Test completed', aborted ? 'error' : 'success');
+                    speedtestBtn.disabled = false;
+                };
+                
+                speedtest.onerror = function(error) {
+                    log(`Speedtest error: ${error.message}`, 'error');
+                    updateStatus('Speedtest error occurred', 'error');
+                    console.error('Speedtest error:', error);
+                };
+                
+                testBtn.disabled = false;
+                updateStatus('Render server loaded successfully', 'success');
+                
+            } catch (error) {
+                log(`Failed to initialize speedtest: ${error.message}`, 'error');
+                updateStatus('Failed to initialize speedtest', 'error');
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        // Test basic connection to endpoints
+        async function testConnection() {
+            if (!renderServer) {
+                log('No server configuration loaded', 'error');
+                return;
+            }
+            
+            clearOutput();
+            log('Testing connection to Render server endpoints...');
+            updateStatus('Testing connection...', 'info');
+            
+            const endpoints = [
+                { name: 'Get IP', url: renderServer.server + renderServer.getIpURL },
+                { name: 'Empty (Upload)', url: renderServer.server + renderServer.ulURL },
+                { name: 'Garbage (Download)', url: renderServer.server + renderServer.dlURL }
+            ];
+            
+            let successCount = 0;
+            
+            for (const endpoint of endpoints) {
+                try {
+                    log(`Testing ${endpoint.name}: ${endpoint.url}`);
+                    
+                    const response = await fetch(endpoint.url, {
+                        method: 'HEAD',
+                        mode: 'cors',
+                        cache: 'no-cache'
+                    });
+                    
+                    if (response.ok) {
+                        log(`✅ ${endpoint.name}: HTTP ${response.status} - OK`, 'success');
+                        successCount++;
+                    } else {
+                        log(`❌ ${endpoint.name}: HTTP ${response.status} - ${response.statusText}`, 'error');
+                    }
+                    
+                    // Check CORS headers
+                    const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+                    if (corsHeader) {
+                        log(`   CORS: ${corsHeader}`, 'info');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ ${endpoint.name}: ${error.message}`, 'error');
+                    console.error(`${endpoint.name} error:`, error);
+                }
+            }
+            
+            if (successCount === endpoints.length) {
+                log('All endpoints are accessible! ✅', 'success');
+                updateStatus('Connection test passed', 'success');
+                speedtestBtn.disabled = false;
+            } else {
+                log(`${successCount}/${endpoints.length} endpoints working`, 'error');
+                updateStatus('Connection test failed', 'error');
+            }
+        }
+        
+        // Run actual speedtest
+        function runSpeedtest() {
+            if (!speedtest) {
+                log('Speedtest not initialized', 'error');
+                return;
+            }
+            
+            clearOutput();
+            log('Starting speedtest with Render server...');
+            updateStatus('Running speedtest...', 'info');
+            
+            try {
+                log('Starting test...');
+                speedtest.start();
+                log('Speedtest started successfully!', 'success');
+                speedtestBtn.disabled = true;
+                
+            } catch (error) {
+                log(`Failed to start speedtest: ${error.message}`, 'error');
+                updateStatus('Failed to start speedtest', 'error');
+                console.error('Start error:', error);
+                speedtestBtn.disabled = false;
+            }
+        }
+        
+        // Auto-run basic test on page load
+        window.addEventListener('load', function() {
+            log('Page loaded - Ready to test Render server');
+            log('Click "Load Render Server" to begin');
+        });
+    </script>
+</body>
+</html>
