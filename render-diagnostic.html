@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Render Connection Diagnostic</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        button { 
+            padding: 10px 20px; 
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .primary { background: #007bff; color: white; }
+        .secondary { background: #6c757d; color: white; }
+        #console {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Render Connection Diagnostic Tool</h1>
+    <p>This tool will help diagnose why the speed test isn't working on your Render deployment.</p>
+    
+    <div class="test-section">
+        <h3>Step 1: Test Backend Endpoints</h3>
+        <button onclick="testEndpoints()" class="primary">Test All Endpoints</button>
+        <div id="endpoint-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Step 2: Test CORS</h3>
+        <button onclick="testCORS()" class="primary">Test CORS Headers</button>
+        <div id="cors-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Step 3: Test Speedtest Library</h3>
+        <button onclick="testSpeedtestLib()" class="primary">Test Speedtest Library</button>
+        <div id="library-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Step 4: Full Speedtest</h3>
+        <button onclick="runFullTest()" class="primary">Run Full Test</button>
+        <button onclick="abortTest()" class="secondary">Abort Test</button>
+        <div id="test-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Console Output</h3>
+        <div id="console"></div>
+    </div>
+
+    <script src="speedtest.js"></script>
+    <script>
+        const consoleDiv = document.getElementById('console');
+        let currentTest = null;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}`;
+            console.log(entry);
+            
+            const div = document.createElement('div');
+            div.textContent = entry;
+            div.style.marginBottom = '2px';
+            if (type === 'error') div.style.color = 'red';
+            if (type === 'success') div.style.color = 'green';
+            consoleDiv.appendChild(div);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+        
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            container.appendChild(div);
+        }
+        
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+        
+        async function testEndpoints() {
+            clearResults('endpoint-results');
+            log('Testing backend endpoints...');
+            
+            const endpoints = [
+                { name: 'empty.php', url: 'https://libtest.onrender.com/backend/empty.php' },
+                { name: 'garbage.php', url: 'https://libtest.onrender.com/backend/garbage.php' },
+                { name: 'getIP.php', url: 'https://libtest.onrender.com/backend/getIP.php' }
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint.url, { 
+                        method: 'HEAD',
+                        cache: 'no-cache'
+                    });
+                    
+                    if (response.ok) {
+                        addResult('endpoint-results', 
+                            `✅ ${endpoint.name}: HTTP ${response.status} - OK`, 'success');
+                        log(`${endpoint.name}: Success (HTTP ${response.status})`, 'success');
+                    } else {
+                        addResult('endpoint-results', 
+                            `❌ ${endpoint.name}: HTTP ${response.status} - ${response.statusText}`, 'error');
+                        log(`${endpoint.name}: Failed (HTTP ${response.status})`, 'error');
+                    }
+                } catch (error) {
+                    addResult('endpoint-results', 
+                        `❌ ${endpoint.name}: ${error.message}`, 'error');
+                    log(`${endpoint.name}: Error - ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function testCORS() {
+            clearResults('cors-results');
+            log('Testing CORS configuration...');
+            
+            try {
+                const response = await fetch('https://libtest.onrender.com/backend/empty.php', {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                const headers = response.headers;
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': headers.get('Access-Control-Allow-Headers')
+                };
+                
+                addResult('cors-results', 
+                    `Response status: HTTP ${response.status}`, 
+                    response.ok ? 'success' : 'error');
+                
+                Object.entries(corsHeaders).forEach(([key, value]) => {
+                    if (value) {
+                        addResult('cors-results', `${key}: ${value}`, 'success');
+                        log(`CORS ${key}: ${value}`, 'success');
+                    } else {
+                        addResult('cors-results', `${key}: Not present`, 'info');
+                        log(`CORS ${key}: Missing`, 'info');
+                    }
+                });
+                
+                if (response.ok) {
+                    log('CORS test passed', 'success');
+                } else {
+                    log('CORS test failed', 'error');
+                }
+                
+            } catch (error) {
+                addResult('cors-results', `CORS test failed: ${error.message}`, 'error');
+                log(`CORS test error: ${error.message}`, 'error');
+            }
+        }
+        
+        function testSpeedtestLib() {
+            clearResults('library-results');
+            log('Testing speedtest library...');
+            
+            try {
+                const test = new Speedtest();
+                log('Speedtest object created successfully', 'success');
+                
+                // Test server configuration
+                const renderServer = {
+                    name: "Render Deployment",
+                    server: "https://libtest.onrender.com/",
+                    dlURL: "backend/garbage.php",
+                    ulURL: "backend/empty.php",
+                    pingURL: "backend/empty.php",
+                    getIpURL: "backend/getIP.php"
+                };
+                
+                test.setSelectedServer(renderServer);
+                log('Server configured successfully', 'success');
+                
+                // Test callbacks
+                test.onupdate = function(data) {
+                    log(`Update received: DL=${data.dlStatus}, UL=${data.ulStatus}`, 'success');
+                };
+                
+                test.onend = function(aborted) {
+                    log(`Test ended. Aborted: ${aborted}`, aborted ? 'error' : 'success');
+                };
+                
+                test.onerror = function(error) {
+                    log(`Library error: ${error.message}`, 'error');
+                };
+                
+                addResult('library-results', '✅ Speedtest library initialized successfully', 'success');
+                addResult('library-results', '✅ Server configuration applied', 'success');
+                addResult('library-results', '✅ Callbacks registered', 'success');
+                
+                currentTest = test;
+                
+            } catch (error) {
+                addResult('library-results', `❌ Library error: ${error.message}`, 'error');
+                log(`Library initialization failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function runFullTest() {
+            clearResults('test-results');
+            log('Starting full speedtest...');
+            
+            if (!currentTest) {
+                testSpeedtestLib();
+            }
+            
+            if (!currentTest) {
+                addResult('test-results', '❌ Speedtest not initialized', 'error');
+                return;
+            }
+            
+            try {
+                log('Starting test...');
+                currentTest.start();
+                addResult('test-results', '🚀 Test started successfully', 'success');
+                log('Test initiated', 'success');
+                
+            } catch (error) {
+                addResult('test-results', `❌ Failed to start test: ${error.message}`, 'error');
+                log(`Test start failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function abortTest() {
+            if (currentTest) {
+                log('Aborting test...');
+                currentTest.abort();
+                addResult('test-results', '⏹️ Test aborted', 'info');
+                log('Test aborted', 'info');
+            } else {
+                addResult('test-results', 'No test running', 'info');
+            }
+        }
+        
+        // Auto-run basic tests on page load
+        window.addEventListener('load', function() {
+            log('Diagnostic tool loaded');
+            log('Ready to test Render deployment');
+        });
+    </script>
+</body>
+</html>

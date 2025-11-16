@@ -379,6 +379,12 @@
             speedtest.onend = function(aborted) {
                 testEnded(aborted);
             };
+            
+            speedtest.onerror = function(error) {
+                console.error('Speedtest error:', error);
+                showStatus('Test error: ' + error.message, 'error');
+                updateButtonState(false);
+            };
         }
 
         // Load server list
@@ -386,8 +392,15 @@
             showStatus("Loading servers...", "info");
             
             fetch('servers.json')
-                .then(response => response.json())
+                .then(response => {
+                    console.log('servers.json response status:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Servers loaded:', data);
                     servers = data;
                     populateServerSelect();
                     showStatus("Servers loaded. Select a server and click Start Test.", "success");
@@ -429,8 +442,10 @@
         // Select server
         function selectServer(index) {
             selectedServer = servers[index];
+            console.log('Selecting server:', selectedServer);
             speedtest.setSelectedServer(selectedServer);
             document.getElementById('serverSelect').value = index;
+            console.log('Server selected successfully');
         }
 
         // Start/stop test
@@ -450,8 +465,11 @@
                 showStatus("Starting test...", "info");
                 
                 try {
+                    console.log('Starting speedtest with server:', selectedServer);
                     speedtest.start();
+                    console.log('Speedtest started successfully');
                 } catch (error) {
+                    console.error('Error starting speedtest:', error);
                     showStatus("Error starting test: " + error.message, "error");
                     updateButtonState(false);
                 }

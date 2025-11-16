@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Render Test</title>
+    <script src="speedtest.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; }
+        #log { margin-top: 20px; padding: 10px; background: #f0f0f0; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Direct Render Server Test</h1>
+    <button onclick="testDirectConnection()">Test Direct Connection</button>
+    <button onclick="testWithCORS()">Test with CORS Headers</button>
+    <div id="log"></div>
+    
+    <script>
+        const speedtest = new Speedtest();
+        const logDiv = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        // Configure the render server directly
+        const renderServer = {
+            name: "Render Deployment",
+            server: "https://libtest.onrender.com/",
+            dlURL: "backend/garbage.php",
+            ulURL: "backend/empty.php",
+            pingURL: "backend/empty.php",
+            getIpURL: "backend/getIP.php"
+        };
+        
+        // Set up callbacks
+        speedtest.onupdate = function(data) {
+            log(`Progress - DL: ${data.dlStatus} Mbps, UL: ${data.ulStatus} Mbps, Ping: ${data.pingStatus} ms`, 'success');
+        };
+        
+        speedtest.onend = function(aborted) {
+            log(`Test completed. Aborted: ${aborted}`, aborted ? 'error' : 'success');
+        };
+        
+        speedtest.onerror = function(error) {
+            log(`Error: ${error.message}`, 'error');
+            console.error('Speedtest error:', error);
+        };
+        
+        function testDirectConnection() {
+            logDiv.innerHTML = '';
+            log('Starting direct connection test...');
+            
+            try {
+                log('Setting server configuration...');
+                speedtest.setSelectedServer(renderServer);
+                log('Server configured successfully');
+                
+                log('Starting speedtest...');
+                speedtest.start();
+                log('Speedtest initiated', 'success');
+                
+            } catch (error) {
+                log(`Failed to start: ${error.message}`, 'error');
+                console.error('Start error:', error);
+            }
+        }
+        
+        function testWithCORS() {
+            logDiv.innerHTML = '';
+            log('Testing CORS preflight...');
+            
+            // Test if we can access the endpoints directly
+            fetch('https://libtest.onrender.com/backend/empty.php', {
+                method: 'HEAD',
+                mode: 'cors'
+            })
+            .then(response => {
+                log(`CORS test successful: ${response.status}`, 'success');
+                testDirectConnection();
+            })
+            .catch(error => {
+                log(`CORS test failed: ${error.message}`, 'error');
+                console.error('CORS error:', error);
+            });
+        }
+    </script>
+</body>
+</html>

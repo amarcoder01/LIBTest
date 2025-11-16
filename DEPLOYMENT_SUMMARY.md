@@ -192,4 +192,4 @@ Your deployment is successful when:
 
 ---
 
-**🎯 Ready to deploy!** Your LibreSpeed Modern UI is production-ready and waiting for deployment to Render. 🚀
+**🎯 Ready to deploy!** Your LibreSpeed Modern UI is production-ready and waiting for deployment to Render.

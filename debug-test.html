@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Speed Test</title>
+    <script src="speedtest.js"></script>
+</head>
+<body>
+    <h1>Speed Test Debug</h1>
+    <div id="status">Loading...</div>
+    <div id="results"></div>
+    
+    <button onclick="startDebugTest()">Start Debug Test</button>
+    
+    <script>
+        const speedtest = new Speedtest();
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        
+        function log(message) {
+            console.log(message);
+            statusDiv.innerHTML += '<br>' + message;
+        }
+        
+        // Load servers
+        fetch('servers.json')
+            .then(response => response.json())
+            .then(servers => {
+                log('Servers loaded: ' + servers.length);
+                if (servers.length > 0) {
+                    const server = servers[0];
+                    log('Using server: ' + server.name + ' (' + server.server + ')');
+                    
+                    speedtest.setSelectedServer(server);
+                    log('Server selected');
+                }
+            })
+            .catch(error => {
+                log('Error loading servers: ' + error.message);
+            });
+        
+        // Set up callbacks
+        speedtest.onupdate = function(data) {
+            log('Update - DL: ' + data.dlStatus + ', UL: ' + data.ulStatus + ', Ping: ' + data.pingStatus);
+        };
+        
+        speedtest.onend = function(aborted) {
+            log('Test ended. Aborted: ' + aborted);
+        };
+        
+        speedtest.onerror = function(error) {
+            log('Error: ' + error.message);
+        };
+        
+        function startDebugTest() {
+            statusDiv.innerHTML = 'Starting test...';
+            resultsDiv.innerHTML = '';
+            
+            try {
+                log('Starting speedtest...');
+                log('Current state: ' + speedtest.getState());
+                
+                speedtest.start();
+                log('Speedtest started successfully');
+            } catch (error) {
+                log('Failed to start: ' + error.message);
+                console.error('Start error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
