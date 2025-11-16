@@ -1,45 +1,48 @@
-FROM php:8-apache
+# LibreSpeed Modern UI - Docker Configuration for Render
+FROM php:8.1-apache
 
-# use docker-php-extension-installer for automatically get the right packages installed
-ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+# Install required PHP extensions
+RUN docker-php-ext-install -j$(nproc) opcache
 
+# Enable Apache modules
+RUN a2enmod rewrite headers
 
-# Install extensions
-RUN install-php-extensions iconv gd pdo pdo_mysql pdo_pgsql pgsql
+# Set working directory
+WORKDIR /var/www/html
 
-RUN rm -f /usr/src/php.tar.xz /usr/src/php.tar.xz.asc \
-    && apt autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+# Copy all project files
+COPY . /var/www/html/
 
-# Prepare files and folders
-RUN mkdir -p /speedtest/
+# Set proper permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html \
+    && chmod -R 777 /var/www/html/backend \
+    && chmod -R 777 /var/www/html/results
 
-# Copy sources
-COPY backend/ /speedtest/backend
+# Configure Apache
+RUN echo 'ServerName localhost' >> /etc/apache2/apache2.conf
 
-COPY results/*.php /speedtest/results/
-COPY results/*.ttf /speedtest/results/
+# Create Apache configuration for LibreSpeed
+RUN echo '<VirtualHost *:80>\n\
+    DocumentRoot /var/www/html\n\
+    <Directory /var/www/html>\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
+    <Directory /var/www/html/backend>\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
+    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
+    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
+</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
 
-COPY *.js /speedtest/
-COPY favicon.ico /speedtest/
+# Expose port 80
+EXPOSE 80
 
-COPY docker/servers.json /servers.json
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/backend/empty.php || exit 1
 
-COPY docker/*.php /speedtest/
-COPY docker/entrypoint.sh /
-
-# Prepare default environment variables
-ENV TITLE=LibreSpeed
-ENV MODE=standalone
-ENV PASSWORD=password
-ENV TELEMETRY=false
-ENV ENABLE_ID_OBFUSCATION=false
-ENV REDACT_IP_ADDRESSES=false
-ENV WEBPORT=8080
-
-# https://httpd.apache.org/docs/2.4/stopping.html#gracefulstop
-STOPSIGNAL SIGWINCH
-
-# Final touches
-EXPOSE ${WEBPORT}
-CMD ["bash", "/entrypoint.sh"]
+# Start Apache
+CMD ["apache2-foreground"]
