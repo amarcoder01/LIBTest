@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeedTest Pro - Auto Server Selection</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="speedtest.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #666;
+            font-weight: 400;
+        }
+
+        .server-section {
+            margin-bottom: 30px;
+        }
+
+        .server-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .server-select {
+            padding: 12px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 250px;
+        }
+
+        .server-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .control-button {
+            padding: 12px 24px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-button:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .control-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .server-list {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .server-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .server-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+        }
+
+        .server-item.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .server-info {
+            flex: 1;
+        }
+
+        .server-name {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+
+        .server-url {
+            font-size: 0.85rem;
+            color: #718096;
+        }
+
+        .server-ping {
+            font-weight: 600;
+            color: #4a5568;
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .server-ping.testing {
+            color: #667eea;
+        }
+
+        .server-ping.best {
+            color: #48bb78;
+        }
+
+        .server-ping.timeout {
+            color: #f56565;
+        }
+
+        .start-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .start-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .start-button:active {
+            transform: translateY(0);
+        }
+
+        .start-button.running {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .start-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .test-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .test-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .test-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .test-card.active {
+            border: 2px solid #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .test-icon {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 1.5rem;
+        }
+
+        .download .test-icon {
+            background: rgba(79, 209, 197, 0.1);
+            color: #4fd1c5;
+        }
+
+        .upload .test-icon {
+            background: rgba(251, 188, 4, 0.1);
+            color: #fbbc04;
+        }
+
+        .ping .test-icon {
+            background: rgba(66, 153, 225, 0.1);
+            color: #4299e1;
+        }
+
+        .jitter .test-icon {
+            background: rgba(245, 101, 101, 0.1);
+            color: #f56565;
+        }
+
+        .test-name {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .test-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .test-unit {
+            font-size: 0.8rem;
+            color: #999;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #e1e5e9;
+            border-radius: 2px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .client-info {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .status-message {
+            margin-top: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .status-message.show {
+            opacity: 1;
+        }
+
+        .status-message.success {
+            background: rgba(72, 187, 120, 0.1);
+            color: #48bb78;
+        }
+
+        .status-message.error {
+            background: rgba(245, 101, 101, 0.1);
+            color: #f56565;
+        }
+
+        .status-message.info {
+            background: rgba(66, 153, 225, 0.1);
+            color: #4299e1;
+        }
+
+        .auto-select-info {
+            background: rgba(72, 187, 120, 0.1);
+            color: #48bb78;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .auto-select-info.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 24px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .server-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .server-select {
+                min-width: auto;
+            }
+            
+            .test-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .test-value {
+                font-size: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .test-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .server-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .server-ping {
+                text-align: left;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container fade-in">
+        <div class="header">
+            <h1 class="title">SpeedTest Pro</h1>
+            <p class="subtitle">Intelligent server selection for accurate speed testing</p>
+        </div>
+
+        <div class="server-section">
+            <div class="server-controls">
+                <select id="serverSelect" class="server-select">
+                    <option value="">Loading servers...</option>
+                </select>
+                <button id="autoSelectBtn" class="control-button" onclick="autoSelectServer()">
+                    Auto-Select Best
+                </button>
+                <button id="refreshServersBtn" class="control-button" onclick="refreshServers()">
+                    Refresh
+                </button>
+            </div>
+
+            <div class="auto-select-info" id="autoSelectInfo">
+                Testing server connections to find the best one for you...
+            </div>
+
+            <div class="server-list" id="serverList" style="display: none;">
+                <div id="serverItems"></div>
+            </div>
+        </div>
+
+        <button id="startStopBtn" class="start-button" onclick="startStop()">
+            Start Test
+        </button>
+
+        <div class="client-info" id="clientInfo" style="display: none;">
+            <strong>Your IP:</strong> <span id="ip"></span>
+        </div>
+
+        <div class="test-container">
+            <div class="test-card download" id="downloadCard">
+                <div class="test-icon">⬇️</div>
+                <div class="test-name">Download</div>
+                <div class="test-value" id="dlText">0.00</div>
+                <div class="test-unit">Mbit/s</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="dlProgress"></div>
+                </div>
+            </div>
+
+            <div class="test-card upload" id="uploadCard">
+                <div class="test-icon">⬆️</div>
+                <div class="test-name">Upload</div>
+                <div class="test-value" id="ulText">0.00</div>
+                <div class="test-unit">Mbit/s</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="ulProgress"></div>
+                </div>
+            </div>
+
+            <div class="test-card ping" id="pingCard">
+                <div class="test-icon">📡</div>
+                <div class="test-name">Ping</div>
+                <div class="test-value" id="pingText">0</div>
+                <div class="test-unit">ms</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="pingProgress"></div>
+                </div>
+            </div>
+
+            <div class="test-card jitter" id="jitterCard">
+                <div class="test-icon">⚡</div>
+                <div class="test-name">Jitter</div>
+                <div class="test-value" id="jitText">0</div>
+                <div class="test-unit">ms</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="jitterProgress"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-message" id="statusMessage"></div>
+    </div>
+
+    <script>
+        let speedtest;
+        let servers = [];
+        let selectedServer = null;
+        let serverPings = {};
+        let autoSelecting = false;
+
+        // Initialize the speedtest
+        function initSpeedtest() {
+            speedtest = new Speedtest();
+            speedtest.setParameter("telemetry_level", "basic");
+            
+            // Set up callbacks
+            speedtest.onupdate = function(data) {
+                updateUI(data);
+            };
+            
+            speedtest.onend = function(aborted) {
+                testEnded(aborted);
+            };
+        }
+
+        // Load server list
+        function loadServers() {
+            showStatus("Loading servers...", "info");
+            
+            fetch('servers.json')
+                .then(response => response.json())
+                .then(data => {
+                    servers = data;
+                    populateServerSelect();
+                    showStatus("Servers loaded. Click 'Auto-Select Best' to find the optimal server.", "success");
+                })
+                .catch(error => {
+                    console.error('Error loading servers:', error);
+                    showStatus("Error loading servers. Using default server.", "error");
+                    // Use default server
+                    servers = [{
+                        name: "Default Server",
+                        server: "./",
+                        dlURL: "backend/garbage.php",
+                        ulURL: "backend/empty.php",
+                        pingURL: "backend/empty.php",
+                        getIpURL: "backend/getIP.php"
+                    }];
+                    populateServerSelect();
+                });
+        }
+
+        // Populate server select dropdown
+        function populateServerSelect() {
+            const select = document.getElementById('serverSelect');
+            select.innerHTML = '';
+            
+            servers.forEach((server, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = server.name;
+                select.appendChild(option);
+            });
+            
+            // Auto-select first server
+            if (servers.length > 0) {
+                selectServer(0);
+            }
+            
+            // Show server list
+            renderServerList();
+        }
+
+        // Render server list with ping information
+        function renderServerList() {
+            const serverList = document.getElementById('serverList');
+            const serverItems = document.getElementById('serverItems');
+            
+            serverItems.innerHTML = '';
+            
+            servers.forEach((server, index) => {
+                const serverItem = document.createElement('div');
+                serverItem.className = 'server-item';
+                if (index === getSelectedServerIndex()) {
+                    serverItem.classList.add('selected');
+                }
+                
+                const pingInfo = serverPings[index] || { status: 'not-tested', ping: null };
+                let pingClass = '';
+                let pingText = 'Not tested';
+                
+                if (pingInfo.status === 'testing') {
+                    pingClass = 'testing';
+                    pingText = 'Testing...';
+                } else if (pingInfo.status === 'timeout') {
+                    pingClass = 'timeout';
+                    pingText = 'Timeout';
+                } else if (pingInfo.status === 'completed' && pingInfo.ping !== null) {
+                    pingText = pingInfo.ping + 'ms';
+                    // Find best ping
+                    const allPings = Object.values(serverPings).filter(p => p.status === 'completed' && p.ping !== null);
+                    if (allPings.length > 0) {
+                        const bestPing = Math.min(...allPings.map(p => p.ping));
+                        if (pingInfo.ping === bestPing) {
+                            pingClass = 'best';
+                        }
+                    }
+                }
+                
+                serverItem.innerHTML = `
+                    <div class="server-info">
+                        <div class="server-name">${server.name}</div>
+                        <div class="server-url">${server.server}</div>
+                    </div>
+                    <div class="server-ping ${pingClass}">${pingText}</div>
+                `;
+                
+                serverItem.onclick = () => selectServer(index);
+                serverItems.appendChild(serverItem);
+            });
+            
+            serverList.style.display = 'block';
+        }
+
+        // Auto-select server based on ping
+        function autoSelectServer() {
+            if (servers.length === 0) {
+                showStatus("No servers available", "error");
+                return;
+            }
+            
+            autoSelecting = true;
+            document.getElementById('autoSelectBtn').disabled = true;
+            document.getElementById('refreshServersBtn').disabled = true;
+            document.getElementById('autoSelectInfo').classList.add('show');
+            showStatus("Testing server connections...", "info");
+            
+            // Reset ping data
+            serverPings = {};
+            renderServerList();
+            
+            // Test each server
+            const testPromises = servers.map((server, index) => testServerPing(server, index));
+            
+            Promise.all(testPromises).then(() => {
+                // Find best server
+                let bestServer = null;
+                let bestPing = Infinity;
+                let bestIndex = -1;
+                
+                servers.forEach((server, index) => {
+                    const pingInfo = serverPings[index];
+                    if (pingInfo && pingInfo.status === 'completed' && pingInfo.ping !== null && pingInfo.ping < bestPing) {
+                        bestPing = pingInfo.ping;
+                        bestServer = server;
+                        bestIndex = index;
+                    }
+                });
+                
+                if (bestServer) {
+                    selectServer(bestIndex);
+                    showStatus(`Auto-selected best server: ${bestServer.name} (${bestPing}ms ping)`, "success");
+                } else {
+                    showStatus("Could not determine best server. Please select manually.", "error");
+                }
+                
+                autoSelecting = false;
+                document.getElementById('autoSelectBtn').disabled = false;
+                document.getElementById('refreshServersBtn').disabled = false;
+                document.getElementById('autoSelectInfo').classList.remove('show');
+                renderServerList();
+            });
+        }
+
+        // Test individual server ping
+        function testServerPing(server, index) {
+            return new Promise((resolve) => {
+                // Mark as testing
+                serverPings[index] = { status: 'testing', ping: null };
+                renderServerList();
+                
+                // Create temporary speedtest for ping
+                const test = new Speedtest();
+                test.setSelectedServer(server);
+                
+                // Override onupdate to capture ping
+                test.onupdate = function(data) {
+                    if (data.pingStatus && data.pingStatus !== '...' && data.pingStatus !== '') {
+                        const ping = parseFloat(data.pingStatus);
+                        if (!isNaN(ping)) {
+                            serverPings[index] = { status: 'completed', ping: Math.round(ping) };
+                            renderServerList();
+                            test.abort();
+                            resolve();
+                        }
+                    }
+                };
+                
+                test.onend = function(aborted) {
+                    if (!serverPings[index] || serverPings[index].status === 'testing') {
+                        serverPings[index] = { status: 'timeout', ping: null };
+                        renderServerList();
+                    }
+                    resolve();
+                };
+                
+                // Start test and abort after getting ping
+                try {
+                    test.start();
+                    // Auto-abort after 5 seconds
+                    setTimeout(() => {
+                        if (test.getState() === 3) {
+                            test.abort();
+                        }
+                        if (!serverPings[index] || serverPings[index].status === 'testing') {
+                            serverPings[index] = { status: 'timeout', ping: null };
+                            renderServerList();
+                        }
+                        resolve();
+                    }, 5000);
+                } catch (error) {
+                    serverPings[index] = { status: 'timeout', ping: null };
+                    renderServerList();
+                    resolve();
+                }
+            });
+        }
+
+        // Refresh servers
+        function refreshServers() {
+            serverPings = {};
+            renderServerList();
+            loadServers();
+        }
+
+        // Get selected server index
+        function getSelectedServerIndex() {
+            return servers.findIndex(s => s === selectedServer);
+        }
+
+        // Select server
+        function selectServer(index) {
+            selectedServer = servers[index];
+            speedtest.setSelectedServer(selectedServer);
+            document.getElementById('serverSelect').value = index;
+            renderServerList();
+        }
+
+        // Start/stop test
+        function startStop() {
+            if (speedtest.getState() === 3) {
+                // Test is running, abort it
+                speedtest.abort();
+            } else {
+                // Start the test
+                if (!selectedServer) {
+                    showStatus("Please select a server first.", "error");
+                    return;
+                }
+                
+                resetUI();
+                updateButtonState(true);
+                showStatus("Starting test...", "info");
+                
+                try {
+                    speedtest.start();
+                } catch (error) {
+                    showStatus("Error starting test: " + error.message, "error");
+                    updateButtonState(false);
+                }
+            }
+        }
+
+        // Update UI with test data
+        function updateUI(data) {
+            // Update values
+            document.getElementById('dlText').textContent = formatSpeed(data.dlStatus);
+            document.getElementById('ulText').textContent = formatSpeed(data.ulStatus);
+            document.getElementById('pingText').textContent = formatPing(data.pingStatus);
+            document.getElementById('jitText').textContent = formatPing(data.jitterStatus);
+            
+            // Update client IP
+            if (data.clientIp) {
+                document.getElementById('ip').textContent = data.clientIp;
+                document.getElementById('clientInfo').style.display = 'block';
+            }
+            
+            // Update progress bars
+            updateProgress('dlProgress', data.dlProgress);
+            updateProgress('ulProgress', data.ulProgress);
+            updateProgress('pingProgress', data.pingProgress);
+            updateProgress('jitterProgress', data.pingProgress); // Jitter uses ping progress
+            
+            // Update active cards
+            updateActiveCard(data.testState);
+            
+            // Update status message based on test state
+            updateStatusMessage(data.testState);
+        }
+
+        // Format speed values
+        function formatSpeed(value) {
+            if (value === '...' || value === '') return '0.00';
+            const num = parseFloat(value);
+            return isNaN(num) ? '0.00' : num.toFixed(2);
+        }
+
+        // Format ping values
+        function formatPing(value) {
+            if (value === '...' || value === '') return '0';
+            const num = parseFloat(value);
+            return isNaN(num) ? '0' : Math.round(num).toString();
+        }
+
+        // Update progress bar
+        function updateProgress(elementId, progress) {
+            const element = document.getElementById(elementId);
+            element.style.width = (progress * 100) + '%';
+        }
+
+        // Update active card highlighting
+        function updateActiveCard(testState) {
+            // Remove active class from all cards
+            document.querySelectorAll('.test-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // Add active class to current test card
+            let activeCard = null;
+            switch (testState) {
+                case 1: // Download test
+                    activeCard = 'downloadCard';
+                    break;
+                case 2: // Ping test
+                    activeCard = 'pingCard';
+                    break;
+                case 3: // Upload test
+                    activeCard = 'uploadCard';
+                    break;
+            }
+            
+            if (activeCard) {
+                document.getElementById(activeCard).classList.add('active');
+            }
+        }
+
+        // Update status message
+        function updateStatusMessage(testState) {
+            let message = '';
+            let type = 'info';
+            
+            switch (testState) {
+                case 0:
+                    message = 'Initializing test...';
+                    break;
+                case 1:
+                    message = 'Testing download speed...';
+                    break;
+                case 2:
+                    message = 'Testing ping and jitter...';
+                    break;
+                case 3:
+                    message = 'Testing upload speed...';
+                    break;
+                case 4:
+                    message = 'Test completed successfully!';
+                    type = 'success';
+                    break;
+                case 5:
+                    message = 'Test aborted.';
+                    type = 'error';
+                    break;
+            }
+            
+            if (message) {
+                showStatus(message, type);
+            }
+        }
+
+        // Test ended
+        function testEnded(aborted) {
+            updateButtonState(false);
+            
+            if (aborted) {
+                showStatus("Test aborted by user", "error");
+                resetUI();
+            } else {
+                showStatus("Test completed successfully!", "success");
+            }
+        }
+
+        // Update button state
+        function updateButtonState(running) {
+            const button = document.getElementById('startStopBtn');
+            const autoSelectBtn = document.getElementById('autoSelectBtn');
+            const refreshServersBtn = document.getElementById('refreshServersBtn');
+            
+            if (running) {
+                button.classList.add('running');
+                button.innerHTML = 'Stop Test <span class="loading"></span>';
+                button.disabled = false;
+                autoSelectBtn.disabled = true;
+                refreshServersBtn.disabled = true;
+            } else {
+                button.classList.remove('running');
+                button.innerHTML = 'Start Test';
+                button.disabled = false;
+                autoSelectBtn.disabled = false;
+                refreshServersBtn.disabled = false;
+            }
+        }
+
+        // Reset UI
+        function resetUI() {
+            document.getElementById('dlText').textContent = '0.00';
+            document.getElementById('ulText').textContent = '0.00';
+            document.getElementById('pingText').textContent = '0';
+            document.getElementById('jitText').textContent = '0';
+            
+            updateProgress('dlProgress', 0);
+            updateProgress('ulProgress', 0);
+            updateProgress('pingProgress', 0);
+            updateProgress('jitterProgress', 0);
+            
+            document.querySelectorAll('.test-card').forEach(card => {
+                card.classList.remove('active');
+            });
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.className = `status-message ${type} show`;
+            
+            setTimeout(() => {
+                statusElement.classList.remove('show');
+            }, 3000);
+        }
+
+        // Server selection change handler
+        document.getElementById('serverSelect').addEventListener('change', function() {
+            const selectedIndex = parseInt(this.value);
+            if (!isNaN(selectedIndex)) {
+                selectServer(selectedIndex);
+            }
+        });
+
+        // Initialize everything
+        window.onload = function() {
+            initSpeedtest();
+            loadServers();
+        };
+    </script>
+</body>
+</html>

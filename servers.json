@@ -1,0 +1,26 @@
+[
+    {
+        "name": "Local Server (HTTP)",
+        "server": "http://localhost/",
+        "dlURL": "backend/garbage.php",
+        "ulURL": "backend/empty.php",
+        "pingURL": "backend/empty.php",
+        "getIpURL": "backend/getIP.php"
+    },
+    {
+        "name": "Local Server (HTTPS)",
+        "server": "https://localhost/",
+        "dlURL": "backend/garbage.php",
+        "ulURL": "backend/empty.php",
+        "pingURL": "backend/empty.php",
+        "getIpURL": "backend/getIP.php"
+    },
+    {
+        "name": "Protocol-Relative Local",
+        "server": "//localhost/",
+        "dlURL": "backend/garbage.php",
+        "ulURL": "backend/empty.php",
+        "pingURL": "backend/empty.php",
+        "getIpURL": "backend/getIP.php"
+    }
+]
