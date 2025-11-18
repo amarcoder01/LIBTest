@@ -1,22 +1,6 @@
 [
     {
-        "name": "Vultr Mumbai",
-        "server": "http://65.20.76.247/",
-        "dlURL": "backend/garbage.php",
-        "ulURL": "backend/empty.php",
-        "pingURL": "backend/empty.php",
-        "getIpURL": "backend/getIP.php"
-    },
-    {
-        "name": "Vultr Mumbai (IPv6)",
-        "server": "http://[2401:c080:2400:1a49:5400:05ff:fec4:a0f2]/",
-        "dlURL": "backend/garbage.php",
-        "ulURL": "backend/empty.php",
-        "pingURL": "backend/empty.php",
-        "getIpURL": "backend/getIP.php"
-    },
-    {
-        "name": "Render Deployment",
+        "name": "Render Deployment (Working)",
         "server": "https://libtest.onrender.com/",
         "dlURL": "backend/garbage.php",
         "ulURL": "backend/empty.php",
