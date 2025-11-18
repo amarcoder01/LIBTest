@@ -365,31 +365,40 @@
         let speedtest;
         let servers = [];
         let selectedServer = null;
+        let serverValidated = false;
 
         // Initialize the speedtest
         function initSpeedtest() {
-            speedtest = new Speedtest();
-            speedtest.setParameter("telemetry_level", "basic");
-            
-            // Set up callbacks
-            speedtest.onupdate = function(data) {
-                updateUI(data);
-            };
-            
-            speedtest.onend = function(aborted) {
-                testEnded(aborted);
-            };
-            
-            speedtest.onerror = function(error) {
-                console.error('Speedtest error:', error);
-                showStatus('Test error: ' + error.message, 'error');
-                updateButtonState(false);
-            };
+            try {
+                speedtest = new Speedtest();
+                speedtest.setParameter("telemetry_level", "basic");
+                
+                // Set up callbacks
+                speedtest.onupdate = function(data) {
+                    updateUI(data);
+                };
+                
+                speedtest.onend = function(aborted) {
+                    testEnded(aborted);
+                };
+                
+                speedtest.onerror = function(error) {
+                    console.error('Speedtest error:', error);
+                    showStatus('Test error: ' + error.message, 'error');
+                    updateButtonState(false);
+                };
+                
+                console.log('Speedtest initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize speedtest:', error);
+                showStatus('Failed to initialize speedtest. Check console for details.', 'error');
+            }
         }
 
         // Load server list
         function loadServers() {
             showStatus("Loading servers...", "info");
+            console.log('Loading servers.json...');
             
             fetch('servers.json')
                 .then(response => {
@@ -403,15 +412,18 @@
                     console.log('Servers loaded:', data);
                     servers = data;
                     populateServerSelect();
-                    showStatus("Servers loaded. Select a server and click Start Test.", "success");
+                    showStatus("Servers loaded successfully.", "success");
                 })
                 .catch(error => {
                     console.error('Error loading servers:', error);
-                    showStatus("Error loading servers. Using default server.", "error");
-                    // Use default server
+                    console.warn('Using default local server configuration');
+                    showStatus("Using default local server. Ensure PHP server is running!", "error");
+                    
+                    // Use default server - assumes running from a local web server
+                    const baseUrl = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
                     servers = [{
-                        name: "Default Server",
-                        server: "./",
+                        name: "Local Server (Default)",
+                        server: baseUrl,
                         dlURL: "backend/garbage.php",
                         ulURL: "backend/empty.php",
                         pingURL: "backend/empty.php",
@@ -439,13 +451,55 @@
             }
         }
 
+        // Validate server connectivity
+        function validateServer(server, callback) {
+            console.log('Validating server connectivity:', server.server + server.pingURL);
+            const testUrl = server.server + server.pingURL + '?cors=true&test=' + Date.now();
+            
+            fetch(testUrl, { method: 'GET', cache: 'no-cache' })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Server validation successful!');
+                        callback(true);
+                    } else {
+                        console.error('Server validation failed: HTTP', response.status);
+                        callback(false);
+                    }
+                })
+                .catch(error => {
+                    console.error('Server validation error:', error);
+                    callback(false);
+                });
+        }
+
         // Select server
         function selectServer(index) {
             selectedServer = servers[index];
+            serverValidated = false;
             console.log('Selecting server:', selectedServer);
-            speedtest.setSelectedServer(selectedServer);
-            document.getElementById('serverSelect').value = index;
-            console.log('Server selected successfully');
+            
+            try {
+                speedtest.setSelectedServer(selectedServer);
+                document.getElementById('serverSelect').value = index;
+                console.log('Server configuration applied');
+                
+                // Validate server connection
+                showStatus('Validating server connection...', 'info');
+                validateServer(selectedServer, function(isValid) {
+                    if (isValid) {
+                        serverValidated = true;
+                        showStatus('Server connected! Ready to test.', 'success');
+                    } else {
+                        serverValidated = false;
+                        showStatus('Cannot connect to server. Is PHP server running?', 'error');
+                        console.error('Server validation failed. Make sure you are running a PHP web server.');
+                        console.error('Try running: php -S localhost:8000 in the project directory');
+                    }
+                });
+            } catch (error) {
+                console.error('Error selecting server:', error);
+                showStatus('Error selecting server: ' + error.message, 'error');
+            }
         }
 
         // Start/stop test
@@ -457,6 +511,14 @@
                 // Start the test
                 if (!selectedServer) {
                     showStatus("Please select a server first.", "error");
+                    console.error('No server selected');
+                    return;
+                }
+                
+                if (!serverValidated) {
+                    showStatus("Server not connected! Please check if PHP server is running.", "error");
+                    console.error('Server validation failed. Cannot start test.');
+                    console.error('You need to run a PHP web server. Try: php -S localhost:8000');
                     return;
                 }
                 
@@ -466,6 +528,12 @@
                 
                 try {
                     console.log('Starting speedtest with server:', selectedServer);
+                    console.log('Server URLs:');
+                    console.log('  Download:', selectedServer.server + selectedServer.dlURL);
+                    console.log('  Upload:', selectedServer.server + selectedServer.ulURL);
+                    console.log('  Ping:', selectedServer.server + selectedServer.pingURL);
+                    console.log('  GetIP:', selectedServer.server + selectedServer.getIpURL);
+                    
                     speedtest.start();
                     console.log('Speedtest started successfully');
                 } catch (error) {
@@ -630,10 +698,13 @@
             const statusElement = document.getElementById('statusMessage');
             statusElement.textContent = message;
             statusElement.className = `status-message ${type} show`;
+            console.log(`[${type.toUpperCase()}] ${message}`);
             
+            // Keep error messages visible longer
+            const timeout = type === 'error' ? 5000 : 3000;
             setTimeout(() => {
                 statusElement.classList.remove('show');
-            }, 3000);
+            }, timeout);
         }
 
         // Server selection change handler
@@ -646,6 +717,26 @@
 
         // Initialize everything
         window.onload = function() {
+            console.log('=== SpeedTest Pro Initialization ===');
+            console.log('Current URL:', window.location.href);
+            
+            // Check if running from file:// protocol
+            if (window.location.protocol === 'file:') {
+                showStatus('ERROR: Cannot run from file://. You MUST use a web server!', 'error');
+                console.error('=================================');
+                console.error('FATAL ERROR: Running from file:// protocol');
+                console.error('This application requires a web server with PHP support.');
+                console.error('');
+                console.error('To fix this, run a PHP server:');
+                console.error('1. Open terminal/command prompt');
+                console.error('2. Navigate to: speedtest-master folder');
+                console.error('3. Run: php -S localhost:8000');
+                console.error('4. Open: http://localhost:8000/modern-ui.html');
+                console.error('=================================');
+                document.getElementById('startStopBtn').disabled = true;
+                return;
+            }
+            
             initSpeedtest();
             loadServers();
         };

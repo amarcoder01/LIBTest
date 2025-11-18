@@ -31,10 +31,12 @@ function getChunkCount()
 function sendHeaders()
 {
     header('HTTP/1.1 200 OK');
-
-    if (isset($_GET['cors'])) {
-        header('Access-Control-Allow-Origin: *');
-        header('Access-Control-Allow-Methods: GET, POST');
+    // Always allow CORS for cross-origin tests
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Content-Encoding, X-Requested-With');
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        exit; // Preflight
     }
 
     // Indicate a file download
