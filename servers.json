@@ -1,6 +1,14 @@
 [
     {
-        "name": "Render Deployment (Working)",
+        "name": "Vultr Mumbai",
+        "server": "http://65.20.76.247/",
+        "dlURL": "backend/garbage.php",
+        "ulURL": "backend/empty.php",
+        "pingURL": "backend/empty.php",
+        "getIpURL": "backend/getIP.php"
+    },
+    {
+        "name": "Render Deployment",
         "server": "https://libtest.onrender.com/",
         "dlURL": "backend/garbage.php",
         "ulURL": "backend/empty.php",
